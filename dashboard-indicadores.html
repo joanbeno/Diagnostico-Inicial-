@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Indicadores — Evaluación y IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#F7F4EC;
+    --paper-line:#DCD5C2;
+    --ink:#22271F;
+    --slate:#5B6357;
+    --accent:#3C6E58;
+    --accent-soft:#DCE6DE;
+    --red:#B0453B;
+    --red-soft:#F1DDD8;
+    --amber:#B2812C;
+    --amber-soft:#F2E6CD;
+    --green:#3C7A5B;
+    --green-soft:#DCEBE1;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* Empty state */
+  .empty-state{
+    max-width:520px;margin:120px auto 80px;padding:0 24px;text-align:center;
+  }
+  .empty-state .icon{
+    font-size:48px;margin-bottom:20px;display:block;
+  }
+  .empty-state h1{
+    font-family:'Fraunces',serif;font-size:26px;font-weight:600;margin-bottom:12px;line-height:1.15;
+  }
+  .empty-state p{
+    font-size:15px;color:var(--slate);line-height:1.55;margin-bottom:28px;
+  }
+  .empty-actions{
+    display:flex;flex-direction:column;gap:12px;align-items:center;
+  }
+  .empty-btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:14px 28px;border-radius:10px;font-family:'IBM Plex Mono',monospace;
+    font-size:13px;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;
+    border:1px solid var(--paper-line);background:#fff;color:var(--ink);
+    transition:border-color .2s,background .2s;text-decoration:none;
+  }
+  .empty-btn:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .empty-btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .empty-btn.primary:hover{background:var(--accent);border-color:var(--accent);}
+  .empty-btn input[type=file]{display:none;}
+  .or-text{font-size:13px;color:var(--slate);}
+
+  /* Dashboard layout */
+  .dash{display:none;}
+  .wrap{max-width:900px;margin:0 auto;padding:48px 24px 80px;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--accent);margin:0 0 10px;
+  }
+  h1.dash-title{
+    font-family:'Fraunces',serif;font-weight:600;font-size:clamp(28px,4vw,38px);
+    line-height:1.08;margin:0 0 6px;letter-spacing:-0.01em;
+  }
+  .dash-subtitle{font-size:14px;color:var(--slate);margin-bottom:36px;}
+
+  .dash-header{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:2px solid var(--ink);padding-bottom:12px;margin-bottom:28px;
+    flex-wrap:wrap;gap:16px;
+  }
+  .stamp{
+    border:3px solid var(--accent);color:var(--accent);border-radius:8px;
+    padding:8px 16px;font-family:'IBM Plex Mono',monospace;font-size:13px;
+    font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+    transform:rotate(-3deg);white-space:nowrap;
+  }
+  .stamp.red{border-color:var(--red);color:var(--red);}
+  .stamp.amber{border-color:var(--amber);color:var(--amber);}
+  .stamp.green{border-color:var(--green);color:var(--green);}
+
+  /* KPI Row */
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:36px;}
+  .kpi-card{
+    background:#fff;border:1px solid var(--paper-line);border-radius:12px;
+    padding:20px 16px;text-align:center;position:relative;overflow:hidden;
+  }
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;}
+  .kpi-card.red::before{background:var(--red);}
+  .kpi-card.amber::before{background:var(--amber);}
+  .kpi-card.green::before{background:var(--green);}
+  .kpi-letter{font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--accent);margin-bottom:4px;}
+  .kpi-title{font-size:12px;color:var(--slate);margin-bottom:10px;line-height:1.3;}
+  .kpi-score{font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:700;line-height:1;margin-bottom:6px;}
+  .kpi-card.red .kpi-score{color:var(--red);}
+  .kpi-card.amber .kpi-score{color:var(--amber);}
+  .kpi-card.green .kpi-score{color:var(--green);}
+  .kpi-pct{font-size:12px;color:var(--slate);font-family:'IBM Plex Mono',monospace;}
+  .kpi-bar{height:6px;border-radius:4px;background:var(--paper-line);margin-top:12px;overflow:hidden;}
+  .kpi-bar-fill{height:100%;border-radius:4px;transition:width .8s ease;}
+  .kpi-bar-fill.red{background:var(--red);}
+  .kpi-bar-fill.amber{background:var(--amber);}
+  .kpi-bar-fill.green{background:var(--green);}
+
+  /* Charts */
+  .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:36px;}
+  .chart-box{
+    background:#fff;border:1px solid var(--paper-line);border-radius:12px;padding:24px;
+  }
+  .chart-box h3{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin-bottom:16px;color:var(--ink);}
+
+  /* Indicators */
+  .detail-section{margin-bottom:36px;}
+  .detail-section h2{
+    font-family:'Fraunces',serif;font-size:22px;font-weight:600;
+    border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:20px;
+  }
+  .indicator-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .indicator-card{
+    background:#fff;border:1px solid var(--paper-line);border-radius:10px;
+    padding:16px;transition:border-color .2s;
+  }
+  .indicator-card:hover{border-color:var(--accent);}
+  .indicator-card .iq-id{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--slate);letter-spacing:0.05em;margin-bottom:6px;}
+  .indicator-card .iq-text{font-size:14px;line-height:1.45;margin-bottom:10px;color:var(--ink);}
+  .indicator-card .iq-score{display:flex;align-items:center;gap:8px;}
+  .iq-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .iq-dot.red{background:var(--red);}
+  .iq-dot.amber{background:var(--amber);}
+  .iq-dot.green{background:var(--green);}
+  .iq-label{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--slate);}
+
+  /* Recommendations */
+  .recs{background:#fff;border:1px solid var(--paper-line);border-radius:12px;padding:28px;margin-bottom:36px;}
+  .recs h2{font-family:'Fraunces',serif;font-size:22px;font-weight:600;margin-bottom:16px;}
+  .rec-item{padding:14px 0;border-bottom:1px dashed var(--paper-line);}
+  .rec-item:last-child{border-bottom:none;}
+  .rec-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;}
+  .rec-tag{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;
+    text-transform:uppercase;padding:3px 8px;border-radius:4px;font-weight:600;
+  }
+  .rec-tag.p1{background:var(--red-soft);color:var(--red);}
+  .rec-tag.p2{background:var(--amber-soft);color:var(--amber);}
+  .rec-tag.p3{background:var(--green-soft);color:var(--green);}
+  .rec-block{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--slate);}
+  .rec-text{font-size:14px;line-height:1.5;color:var(--slate);padding-left:18px;}
+
+  /* Export */
+  .export-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:40px;}
+  .export-btn{
+    padding:10px 20px;border:1px solid var(--paper-line);border-radius:8px;
+    background:#fff;font-family:'IBM Plex Mono',monospace;font-size:12px;
+    letter-spacing:0.04em;cursor:pointer;transition:border-color .2s,background .2s;color:var(--ink);
+  }
+  .export-btn:hover{border-color:var(--accent);background:var(--accent-soft);}
+
+  .footer-note{
+    font-size:13px;color:var(--slate);border-top:1px solid var(--paper-line);
+    margin-top:36px;padding-top:16px;line-height:1.5;
+  }
+
+  @media (max-width:640px){
+    .kpi-row{grid-template-columns:1fr 1fr;}
+    .charts-grid{grid-template-columns:1fr;}
+    .indicator-grid{grid-template-columns:1fr;}
+    .dash-header{flex-direction:column;align-items:flex-start;}
+  }
+  @media (max-width:380px){
+    .kpi-row{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════ EMPTY STATE ═══════ -->
+<div class="empty-state" id="empty-state">
+  <span class="icon">&#9670;</span>
+  <h1>Dashboard de indicadores</h1>
+  <p>Este dashboard visualiza los resultados de tu diagn&oacute;stico de evaluaci&oacute;n y IA. Primero necesitas completar el formulario de diagn&oacute;stico, o importar un archivo JSON con los resultados.</p>
+  <div class="empty-actions">
+    <button class="empty-btn primary" id="load-local-btn">Cargar &uacute;ltimo diagn&oacute;stico</button>
+    <span class="or-text">o</span>
+    <label class="empty-btn" id="import-label">
+      Importar archivo JSON
+      <input type="file" id="import-file" accept=".json">
+    </label>
+    <span class="or-text">o</span>
+    <a class="empty-btn" href="diagnostico-evaluacion-IA.html">Ir al diagn&oacute;stico</a>
+  </div>
+</div>
+
+<!-- ═══════ DASHBOARD ═══════ -->
+<div class="dash" id="dashboard">
+  <div class="wrap">
+    <p class="eyebrow">M&oacute;dulo 2 &middot; Dashboard</p>
+    <div class="dash-header">
+      <div>
+        <h1 class="dash-title">Tu dashboard de indicadores</h1>
+        <p class="dash-subtitle" id="dash-date"></p>
+      </div>
+      <div class="stamp" id="stamp">&mdash;</div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h3>Perfil de capacidades</h3>
+        <canvas id="radarChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Distribuci&oacute;n por dimensi&oacute;n</h3>
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Indicators Detail -->
+    <div class="detail-section">
+      <h2>Detalle por indicador</h2>
+      <div class="indicator-grid" id="indicator-grid"></div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="recs">
+      <h2>Recomendaciones personalizadas</h2>
+      <div id="rec-list"></div>
+    </div>
+
+    <!-- Export -->
+    <div class="export-row">
+      <button class="export-btn" onclick="exportJSON()">Exportar datos (JSON)</button>
+      <button class="export-btn" onclick="exportCSV()">Exportar resultados (CSV)</button>
+      <button class="export-btn" onclick="window.print()">Imprimir / PDF</button>
+    </div>
+
+    <p class="footer-note">Este dashboard es el M&oacute;dulo 2 del diplomado. Los datos provienen del diagn&oacute;stico (M&oacute;dulo 1). En la Sesión 2 vas a partir del bloque B para construir tu propio dashboard, en la Sesión 3 del bloque C para tu ruta adaptativa, y en la Sesión 4 del bloque D para tu checklist &eacute;tico.</p>
+  </div>
+</div>
+
+<script>
+const OPTS = [{v:0,l:'Nunca'},{v:1,l:'Rara vez'},{v:2,l:'A veces'},{v:3,l:'Siempre'}];
+
+const blocks = {
+  A:{title:'Evaluaci\u00f3n aut\u00e9ntica',sub:'Qu\u00e9 tanto mide realmente el aprendizaje',qs:['A1','A2','A3','A4']},
+  B:{title:'Datos y dashboard',sub:'Si uso los datos para decidir',qs:['B1','B2','B3','B4']},
+  C:{title:'Evaluaci\u00f3n adaptativa',sub:'Si mi evaluaci\u00f3n se adapta al estudiante',qs:['C1','C2','C3','C4']},
+  D:{title:'\u00c9tica con IA',sub:'Si uso la IA de forma \u00e9tica en el seguimiento',qs:['D1','D2','D3','D4']}
+};
+
+const qText = {
+  A1:'Mis evaluaciones piden aplicar el conocimiento a una situaci\u00f3n real, no solo repetir informaci\u00f3n.',
+  A2:'Mis evaluaciones ser\u00edan dif\u00edciles de resolver copiando y pegando en una IA sin pensar.',
+  A3:'Eval\u00fao tambi\u00e9n el proceso (c\u00f3mo lleg\u00f3 a la respuesta), no solo el resultado final.',
+  A4:'Tengo criterios expl\u00edcitos de evaluaci\u00f3n (r\u00fabrica o lista de cotejo), no solo correcci\u00f3n subjetiva.',
+  B1:'Reviso los datos de mis estudiantes para decidir qu\u00e9 reforzar, no solo para poner una nota.',
+  B2:'Tengo identificados 2-3 datos clave de mi curso que me avisar\u00edan si algo anda mal.',
+  B3:'Uso esos datos de forma regular (semanal o quincenal), no solo al final del periodo.',
+  B4:'Puedo explicar, con un dato concreto, por qu\u00e9 decid\u00ed repetir un tema o avanzar con el grupo.',
+  C1:'No todos mis estudiantes reciben exactamente la misma dificultad; ajusto seg\u00fan su nivel.',
+  C2:'Tengo un plan claro de qu\u00e9 hacer si un estudiante falla (refuerzo) o si le va muy bien (reto adicional).',
+  C3:'He usado o explorado IA para generar variantes de una misma actividad con distinto nivel.',
+  C4:'Mi retroalimentaci\u00f3n cambia seg\u00fan el error espec\u00edfico del estudiante; no es gen\u00e9rica para todos.',
+  D1:'Soy transparente con mis estudiantes sobre cu\u00e1ndo uso IA para calificar o dar retroalimentaci\u00f3n.',
+  D2:'Reviso o valido personalmente cualquier calificaci\u00f3n o retroalimentaci\u00f3n generada por IA antes de comunicarla.',
+  D3:'He pensado en qu\u00e9 estudiantes podr\u00edan verse perjudicados injustamente por un sistema automatizado.',
+  D4:'Tengo un criterio claro para distinguir un uso honesto de IA por parte del estudiante de uno que vulnera la integridad acad\u00e9mica.'
+};
+
+const notes = {
+  A:{red:'A\u00fan eval\u00fas sobre todo memoria o repetici\u00f3n. Es el punto de partida ideal para la Sesi\u00f3n 1: elige este mismo caso para redise\u00f1arlo.',
+     amber:'Ya tienes elementos de evaluaci\u00f3n aut\u00e9ntica, pero sin sistematizar. La Sesi\u00f3n 1 te ayuda a hacerlo expl\u00edcito.',
+     green:'Tu evaluaci\u00f3n ya pide aplicar el conocimiento. En el diplomado puedes enfocarte en blindarla frente a la IA y hacerla a\u00fan m\u00e1s rigurosa.'},
+  B:{red:'Hoy los datos de tu clase casi no se usan para decidir. La Sesi\u00f3n 2 (dashboard) es donde m\u00e1s vas a ganar.',
+     amber:'Miras algunos datos, pero no de forma regular ni sistem\u00e1tica. La Sesi\u00f3n 2 te da una estructura simple para ordenarlo.',
+     green:'Ya usas datos para tomar decisiones. En la Sesi\u00f3n 2 puedes explorar c\u00f3mo automatizar parte de ese seguimiento.'},
+  C:{red:'Todos tus estudiantes reciben hoy lo mismo, sin ajuste. La Sesi\u00f3n 3 (evaluaci\u00f3n adaptativa) es clave para ti.',
+     amber:'Ya ajustas algo la dificultad o el apoyo, pero sin una ruta definida. La Sesi\u00f3n 3 te ayuda a estructurarlo.',
+     green:'Ya adaptas tu evaluaci\u00f3n al estudiante. En la Sesi\u00f3n 3 puedes ver c\u00f3mo la IA agiliza esa adaptaci\u00f3n.'},
+  D:{red:'A\u00fan no has definido l\u00edmites claros para el uso \u00e9tico de IA en tu evaluaci\u00f3n. La Sesi\u00f3n 4 es prioritaria para ti.',
+     amber:'Tienes algunas pr\u00e1cticas \u00e9ticas, pero sin un criterio expl\u00edcito. La Sesi\u00f3n 4 te ayuda a construir ese checklist.',
+     green:'Ya tienes buenas pr\u00e1cticas \u00e9ticas con IA. En la Sesi\u00f3n 4 puedes ayudar al grupo a construir el checklist com\u00fan.'}
+};
+
+const sessionMap = {A:'Sesi\u00f3n 1',B:'Sesi\u00f3n 2',C:'Sesi\u00f3n 3',D:'Sesi\u00f3n 4'};
+
+let radarChart = null;
+let barChart = null;
+let currentData = null;
+
+function tier(score){
+  if(score<=4) return 'red';
+  if(score<=8) return 'amber';
+  return 'green';
+}
+const tierLabel = {red:'Punto de partida',amber:'En transici\u00f3n',green:'Consolidado'};
+
+function showDashboard(data){
+  currentData = data;
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  const {blockScores, total} = data;
+  const avg = total / 4;
+  const overallTier = tier(Math.round(avg));
+
+  // Date
+  if(data.timestamp){
+    const d = new Date(data.timestamp);
+    document.getElementById('dash-date').textContent = 'Generado el ' + d.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }
+
+  // Stamp
+  const stamp = document.getElementById('stamp');
+  stamp.textContent = tierLabel[overallTier];
+  stamp.className = 'stamp ' + overallTier;
+
+  // KPI Cards
+  const kpiRow = document.getElementById('kpi-row');
+  kpiRow.innerHTML = '';
+  Object.entries(blocks).forEach(([key, b])=>{
+    const score = blockScores[key];
+    const t = tier(score);
+    const pct = Math.round(score/12*100);
+    const card = document.createElement('div');
+    card.className = 'kpi-card ' + t;
+    card.innerHTML = `
+      <div class="kpi-letter">${key}</div>
+      <div class="kpi-title">${b.title}</div>
+      <div class="kpi-score">${score}<span style="font-size:16px;font-weight:400;">/12</span></div>
+      <div class="kpi-pct">${pct}% \u00b7 ${tierLabel[t]}</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill ${t}" style="width:${pct}%"></div></div>
+    `;
+    kpiRow.appendChild(card);
+  });
+
+  // Radar Chart
+  const radarCtx = document.getElementById('radarChart').getContext('2d');
+  if(radarChart) radarChart.destroy();
+  radarChart = new Chart(radarCtx, {
+    type:'radar',
+    data:{
+      labels: Object.values(blocks).map(b=>b.title),
+      datasets:[{
+        label:'Tu puntuaci\u00f3n',
+        data: Object.values(blockScores),
+        backgroundColor:'rgba(60,110,88,0.15)',
+        borderColor:'#3C6E58',
+        borderWidth:2,
+        pointBackgroundColor:'#3C6E58',
+        pointRadius:5,
+        pointHoverRadius:7
+      },{
+        label:'M\u00e1ximo posible',
+        data:[12,12,12,12],
+        backgroundColor:'rgba(220,213,194,0.1)',
+        borderColor:'#DCD5C2',
+        borderWidth:1,
+        borderDash:[4,4],
+        pointRadius:0,
+        fill:true
+      }]
+    },
+    options:{
+      responsive:true,
+      scales:{
+        r:{
+          min:0,max:12,
+          ticks:{stepSize:3,font:{family:'IBM Plex Mono',size:11},color:'#5B6357'},
+          pointLabels:{font:{family:'Inter',size:12,weight:'500'},color:'#22271F'},
+          grid:{color:'#DCD5C2'}
+        }
+      },
+      plugins:{legend:{display:false}}
+    }
+  });
+
+  // Bar Chart
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  if(barChart) barChart.destroy();
+  const barColors = Object.keys(blockScores).map(k=>{
+    const t = tier(blockScores[k]);
+    return t==='red'?'#B0453B':t==='amber'?'#B2812C':'#3C7A5B';
+  });
+  barChart = new Chart(barCtx, {
+    type:'bar',
+    data:{
+      labels: Object.keys(blockScores).map(k=>`${k} \u00b7 ${blocks[k].title}`),
+      datasets:[{
+        label:'Puntuaci\u00f3n',
+        data: Object.values(blockScores),
+        backgroundColor: barColors,
+        borderRadius:6,
+        barThickness:36
+      }]
+    },
+    options:{
+      responsive:true,
+      indexAxis:'y',
+      scales:{
+        x:{min:0,max:12,ticks:{stepSize:3,font:{family:'IBM Plex Mono',size:11},color:'#5B6357'},grid:{color:'#DCD5C2'}},
+        y:{ticks:{font:{family:'Inter',size:12,weight:'500'},color:'#22271F'},grid:{display:false}}
+      },
+      plugins:{legend:{display:false}}
+    }
+  });
+
+  // Indicator Cards
+  const grid = document.getElementById('indicator-grid');
+  grid.innerHTML = '';
+  Object.entries(blocks).forEach(([key, b])=>{
+    b.qs.forEach(q=>{
+      const v = data.qScores[q];
+      const t = tier(v*4);
+      const card = document.createElement('div');
+      card.className = 'indicator-card';
+      card.innerHTML = `
+        <div class="iq-id">${q}</div>
+        <div class="iq-text">${qText[q]}</div>
+        <div class="iq-score">
+          <span class="iq-dot ${t}"></span>
+          <span class="iq-label">${OPTS[v].l} (${v}/3)</span>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  });
+
+  // Recommendations
+  const recList = document.getElementById('rec-list');
+  recList.innerHTML = '';
+  const sorted = Object.entries(blockScores).sort((a,b)=>a[1]-b[1]);
+  sorted.forEach(([key, score], i)=>{
+    const t = tier(score);
+    const priority = i<2?'p1':i===2?'p2':'p3';
+    const prioLabel = i<2?'Prioritario':i===2?'Siguiente':'Fortalecer';
+    const item = document.createElement('div');
+    item.className = 'rec-item';
+    item.innerHTML = `
+      <div class="rec-head">
+        <span class="rec-tag ${priority}">${prioLabel}</span>
+        <span class="rec-block">${sessionMap[key]} \u00b7 Bloque ${key} \u00b7 ${blocks[key].title}</span>
+      </div>
+      <p class="rec-text">${notes[key][t]}</p>
+    `;
+    recList.appendChild(item);
+  });
+}
+
+// Try loading from localStorage
+function tryLocalLoad(){
+  const raw = localStorage.getItem('diag_ia_results');
+  if(raw){
+    try{
+      const data = JSON.parse(raw);
+      if(data.blockScores && data.total !== undefined){
+        showDashboard(data);
+        return true;
+      }
+    }catch(e){}
+  }
+  return false;
+}
+
+if(!tryLocalLoad()){
+  document.getElementById('empty-state').style.display = 'block';
+}
+
+// Local load button
+document.getElementById('load-local-btn').addEventListener('click', ()=>{
+  if(!tryLocalLoad()){
+    alert('No se encontr\u00f3 un diagn\u00f3stico guardado. Completa el formulario primero.');
+  }
+});
+
+// File import
+document.getElementById('import-file').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const data = JSON.parse(ev.target.result);
+      if(data.blockScores && data.total !== undefined){
+        showDashboard(data);
+      } else {
+        alert('El archivo no contiene datos de diagn\u00f3stico v\u00e1lidos.');
+      }
+    }catch(err){
+      alert('Error al leer el archivo: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Export JSON
+function exportJSON(){
+  if(!currentData) return;
+  const data = {
+    timestamp: currentData.timestamp,
+    total: currentData.total,
+    maxPossible: 48,
+    overallPercentage: Math.round(currentData.total/48*100),
+    blocks: {},
+    indicators: {}
+  };
+  Object.entries(currentData.blockScores).forEach(([k,v])=>{
+    const t = tier(v);
+    data.blocks[k] = {
+      title: blocks[k].title,
+      score: v, max: 12,
+      percentage: Math.round(v/12*100),
+      tier: t, tierLabel: tierLabel[t],
+      note: notes[k][t]
+    };
+  });
+  Object.entries(currentData.qScores).forEach(([q,v])=>{
+    data.indicators[q] = {text:qText[q], value:v, label:OPTS[v].l};
+  });
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `dashboard-IA-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+// Export CSV
+function exportCSV(){
+  if(!currentData) return;
+  let csv = 'Bloque,Indicador,Puntuacion,Maximo,Etiqueta\n';
+  Object.entries(blocks).forEach(([key, b])=>{
+    b.qs.forEach(q=>{
+      const v = currentData.qScores[q];
+      csv += `"${key} - ${b.title}","${qText[q].replace(/"/g,'""')}",${v},3,"${OPTS[v].l}"\n`;
+    });
+    const bs = currentData.blockScores[key];
+    csv += `"${key} - ${b.title}","SUBTOTAL",${bs},12,"${tierLabel[tier(bs)]}"\n`;
+  });
+  csv += `,"TOTAL",${currentData.total},48,"${tierLabel[tier(Math.round(currentData.total/4))]}"\n`;
+  const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `dashboard-IA-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
